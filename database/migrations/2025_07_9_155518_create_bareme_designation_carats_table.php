@@ -11,11 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('shipment_items', function (Blueprint $table) {
+        Schema::create('bareme_designation_carats', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('shipment_id')->constrained('gold_shipments');
-            $table->foreignId('inventory_id')->constrained('gold_inventorys');
-            $table->decimal('weight', 10, 2);
+            $table->decimal('carat', 5, 2);
+            $table->decimal('density_min', 5, 2);
+            $table->decimal('density_max', 5, 2);
             $table->timestamps();
         });
     }
@@ -25,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('shipment_items');
+        Schema::dropIfExists('bareme_designation_carats');
     }
 };

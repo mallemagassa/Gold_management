@@ -10,6 +10,7 @@ use App\Providers\PanelServiceProvider;
 use Illuminate\Support\ServiceProvider;
 use App\Resources\Admin\GoldSaleResource;
 use App\Resources\Admin\SupplierResource;
+use App\Resources\Admin\FonteGoldResource;
 use App\Resources\Admin\LocalRateResource;
 use App\Resources\Admin\TransactionResource;
 use App\Resources\Admin\ExchangeRateResource;
@@ -19,6 +20,7 @@ use App\Resources\Admin\GoldInventoryResource;
 use App\Resources\Admin\RefiningBatcheResource;
 use App\Resources\Admin\GoldMarketPriceResource;
 use App\Resources\Admin\LocalGoldPurchaseResource;
+use App\Resources\Admin\BaremeDesignationCaratResource;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -59,7 +61,9 @@ class AppServiceProvider extends ServiceProvider
                     ShipmentItemResource::class,
                     SupplierResource::class,
                     TransactionResource::class,
+                    BaremeDesignationCaratResource::class,
                     RoleResource::class,
+                    FonteGoldResource::class
 
                 ]
             ]

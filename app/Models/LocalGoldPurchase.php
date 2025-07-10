@@ -12,7 +12,9 @@ class LocalGoldPurchase extends Model
 
     protected $fillable = [
         'supplier_id',
-        'weight_grams',
+        'weight_grams_min',
+        'weight_grams_max',
+        'densite',
         'purity_estimated',
         'price_per_gram_local',
         'total_price',
@@ -20,6 +22,7 @@ class LocalGoldPurchase extends Model
         'local_rate_id',
         'payment_status',
         'agent_id',
+        'bareme_designation_carat_id',
         'receipt_reference'
     ];
 
@@ -41,6 +44,10 @@ class LocalGoldPurchase extends Model
     public function agent(): BelongsTo
     {
         return $this->belongsTo(User::class, 'agent_id');
+    }
+
+    public function baremeDesignationCarat(): BelongsTo{
+        return $this->belongsTo(BaremeDesignationCarat::class);
     }
 }
 

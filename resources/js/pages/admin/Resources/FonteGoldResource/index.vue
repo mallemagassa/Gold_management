@@ -10,29 +10,25 @@ import DropdownAction from '@/components/ui/data-table/DataTableDemoColumn.vue'
 import Button from '@/components/ui/button/Button.vue';
 import { ArrowUpDown, ChevronDown } from 'lucide-vue-next'
 
-interface LocalGoldPurchase {
-  supplier_id: number;
-  weight_grams_min: number;
+interface FonteGold {
+weight_grams_min: number;
   weight_grams_max: number;
   densite: number;
-  bareme_designation_carat_id: number;
-  purity_estimated: string;
-  price_per_gram_local: string;
-  total_price: string;
-  purchase_date: string | Date;
+  purity_estimated: number;
+  price_per_gram_local: number;
+  total_price: number;
+  fonte_date: string | Date;
   local_rate_id: number;
-  payment_status: string;
-  agent_id: number;
-  receipt_reference: string;
+  bareme_designation_carat_id: number;
 }
 
 const props = defineProps({
   table: {
     type: Object as () => {
       records: {
-        data: LocalGoldPurchase[]
+        data: FonteGold[]
       }
-      columns: ColumnDef<LocalGoldPurchase>[]
+      columns: ColumnDef<FonteGold>[]
     },
     required: true
   },
@@ -104,7 +100,7 @@ const formattedColumns = computed(() => {
         edit: props.resource.routes.edit,
         destroy: props.resource.routes.destroy,
         index: props.resource.routes.index,
-        show: props.resource.routes.show
+        show: props.resource.routes.show,
         },
         onExpand: row.toggleExpanded
     })

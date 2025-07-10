@@ -1,28 +1,37 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Head, useForm, Link } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Button from '@/components/ui/button/Button.vue'
-import Select from '@/components/ui/select/Select.vue'
-import { SelectItem, SelectTrigger, SelectValue, SelectContent } from '@/components/ui/select'
 import { toast } from 'vue-sonner'
+import Select from '@/components/ui/select/Select.vue'
+import SelectItem from '@/components/ui/select/SelectItem.vue'
+import { SelectTrigger, SelectValue, SelectContent } from '@/components/ui/select'
 import { Scale, BadgeDollarSign, User, Receipt } from 'lucide-vue-next'
 
 const props = defineProps({
   localgoldpurchase: Object,
   form: Object,
   resource: Object,
+  baremeOptions: Array
 })
+
+
 
 // Extraire les options des selects
 const supplierOptions = computed(() => props.form.supplier_id?.options?.options || {})
+const caratOptions = computed(() => props.form.bareme_designation_carat_id?.options?.options || {})
 const localRateOptions = computed(() => props.form.local_rate_id?.options?.options || {})
 const agentOptions = computed(() => props.form.agent_id?.options?.options || {})
 
 const form = useForm({
   supplier_id: props.localgoldpurchase.supplier_id,
-  weight_grams: props.localgoldpurchase.weight_grams,
+  weight_grams_min: props.localgoldpurchase.weight_grams_min,
+  weight_grams_max: props.localgoldpurchase.weight_grams_max,
+  densite: props.localgoldpurchase.densite,
+  bareme_designation_carat_id: props.localgoldpurchase.bareme_designation_carat_id,
+  carat: props.localgoldpurchase.carat,
   purity_estimated: props.localgoldpurchase.purity_estimated,
   price_per_gram_local: props.localgoldpurchase.price_per_gram_local,
   total_price: props.localgoldpurchase.total_price,
@@ -33,24 +42,96 @@ const form = useForm({
   receipt_reference: props.localgoldpurchase.receipt_reference
 })
 
-// Calcul automatique du prix total
-const totalPrice = computed(() => {
-  if (form.weight_grams && form.price_per_gram_local) {
-    const weight = parseFloat(form.weight_grams.replace(',', '.'))
-    const price = parseFloat(form.price_per_gram_local.replace(/[^0-9.]/g, ''))
-    return (weight * price).toFixed(2) + ' XOF'
+// Fonction pour nettoyer les valeurs numériques
+const cleanNumber = (value) => {
+  if (!value) return 0
+  return parseFloat(value.toString().replace(',', '.')) || 0
+}
+
+// Calcul de la densité
+const densite = computed(() => {
+  if (form.weight_grams_max && form.weight_grams_min) {
+    const poidsAir = cleanNumber(form.weight_grams_max)
+    const poidsEau = cleanNumber(form.weight_grams_min)
+    const difference = poidsAir - poidsEau
+    if (difference <= 0) return form.densite || '0.00'
+    return (poidsAir / difference).toFixed(2)
   }
-  return '0 XOF'
+  return form.densite || '0.00'
 })
 
-watch(() => [form.weight_grams, form.price_per_gram_local], () => {
-  form.total_price = totalPrice.value.split(' ')[0]
+// Trouver le carat correspondant à la densité
+const selectedCarat = computed(() => {
+  if (!props.baremeOptions || densite.value === '0.00') {
+    // Retourner le carat existant si aucun calcul n'est possible
+    return props.baremeOptions.find(item => item.id === form.bareme_designation_carat_id) || null
+  }
+  
+  const densiteValue = parseFloat(densite.value)
+  return props.baremeOptions.find(item => 
+    densiteValue >= item.density_min && densiteValue <= item.density_max
+  ) || null
+})
+
+// Calcul de la pureté
+const purete = computed(() => {
+  if (selectedCarat.value) {
+    return ((selectedCarat.value.carat * 100) / 24).toFixed(2)
+  }
+  return form.purity_estimated || '0.00'
+})
+
+// Calcul du prix au gramme
+const pricePerGram = computed(() => {
+  if (form.local_rate_id && selectedCarat.value) {
+    const rate = cleanNumber(localRateOptions.value[form.local_rate_id])
+    return (rate * (selectedCarat.value.carat / 24)).toFixed(2)
+  }
+  return form.price_per_gram_local || '0.00'
+})
+
+// Calcul du montant total
+const montantTotal = computed(() => {
+  if (form.weight_grams_max && form.local_rate_id) {
+    const poidsAir = cleanNumber(form.weight_grams_max)
+    const rate = cleanNumber(localRateOptions.value[form.local_rate_id])
+    return (poidsAir * rate).toFixed(2)
+  }
+  return form.total_price || '0.00'
+})
+
+// Watchers pour mettre à jour les champs automatiquement
+watch(densite, (newVal) => {
+  form.densite = newVal
+})
+
+watch(selectedCarat, (newVal) => {
+  if (newVal) {
+    form.bareme_designation_carat_id = newVal.id
+    form.carat = newVal.carat
+  }
+})
+
+watch(purete, (newVal) => {
+  form.purity_estimated = newVal
+})
+
+watch(pricePerGram, (newVal) => {
+  form.price_per_gram_local = newVal
+})
+
+watch(montantTotal, (newVal) => {
+  form.total_price = newVal
 })
 
 function submitForm() {
   form.put(props.resource.routes.update.replace(':id', props.localgoldpurchase.id), {
-    onSuccess: () => toast.success('Achat mis à jour avec succès'),
-    onError: () => toast.error('Erreur lors de la mise à jour')
+    onSuccess: () => {
+      toast.success('Achat mis à jour avec succès')
+    },
+    onError: () => {
+      toast.error('Erreur lors de la mise à jour')
+    }
   })
 }
 
@@ -68,14 +149,14 @@ function getSelectValue(id) {
 </script>
 
 <template>
-  <Head :title="`Modifier Achat #${localgoldpurchase.receipt_reference}`" />
+  <Head :title="`Modifier Achat d'Or Local`" />
 
   <AppLayout>
     <div class="flex flex-col gap-6 p-4 max-w-4xl mx-auto">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-2xl font-bold text-gold-600">Modifier Achat d'Or</h1>
-          <p class="text-sm text-muted-foreground">Référence: {{ localgoldpurchase.receipt_reference }}</p>
+          <h1 class="text-2xl font-bold text-gold-600">Modifier Achat d'Or Local</h1>
+          <p class="text-sm text-muted-foreground">Modifier la transaction d'achat</p>
         </div>
         <Link :href="resource.routes.index">
           <Button variant="outline" class="border-gold-300">
@@ -113,21 +194,36 @@ function getSelectValue(id) {
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium mb-1">Poids (g)</label>
+                  <label class="block text-sm font-medium mb-1">Poids à l'air (g)</label>
                   <Input 
-                    v-model="form.weight_grams" 
-                    type="text" 
+                    v-model="form.weight_grams_max" 
+                    type="number" 
                     required 
-                    @input="form.weight_grams = form.weight_grams.replace(/[^0-9,.]/g, '')"
+                    step="0.01"
+                    min="0"
+                    @input="form.weight_grams_max = form.weight_grams_max.replace(/[^0-9.,]/g, '')"
                   />
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium mb-1">Pureté estimée</label>
+                  <label class="block text-sm font-medium mb-1">Poids à l'eau (g)</label>
                   <Input 
-                    v-model="form.purity_estimated" 
-                    type="text" 
+                    v-model="form.weight_grams_min" 
+                    type="number" 
                     required 
+                    step="0.01"
+                    min="0"
+                    @input="form.weight_grams_min = form.weight_grams_min.replace(/[^0-9.,]/g, '')"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium mb-1">Densité Or (calculée)</label>
+                  <Input 
+                    v-model="form.densite" 
+                    type="text" 
+                    readonly
+                    class="bg-gray-100"
                   />
                 </div>
               </div>
@@ -141,17 +237,7 @@ function getSelectValue(id) {
               
               <div class="space-y-3">
                 <div>
-                  <label class="block text-sm font-medium mb-1">Prix au gramme (XOF)</label>
-                  <Input 
-                    v-model="form.price_per_gram_local" 
-                    type="text" 
-                    required 
-                    @input="form.price_per_gram_local = form.price_per_gram_local.replace(/[^0-9]/g, '')"
-                  />
-                </div>
-
-                <div>
-                  <label class="block text-sm font-medium mb-1">Taux local</label>
+                  <label class="block text-sm font-medium mb-1">Taux Local Pur</label>
                   <Select v-model="form.local_rate_id" required>
                     <SelectTrigger class="w-full">
                       <SelectValue placeholder="Sélectionnez un taux" />
@@ -169,6 +255,16 @@ function getSelectValue(id) {
                 </div>
 
                 <div>
+                  <label class="block text-sm font-medium mb-1">Prix au gramme (calculé)</label>
+                  <Input 
+                    v-model="form.price_per_gram_local" 
+                    type="text" 
+                    readonly
+                    class="bg-gray-100"
+                  />
+                </div>
+
+                <div>
                   <label class="block text-sm font-medium mb-1">Date d'achat</label>
                   <Input v-model="form.purchase_date" type="date" required />
                 </div>
@@ -180,9 +276,32 @@ function getSelectValue(id) {
           <div class="bg-gold-50 dark:bg-gold-900/20 rounded-lg p-4 border border-gold-200 dark:border-gold-800">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
+                <label class="block text-sm font-medium mb-1">Densité Or</label>
+                <div class="text-2xl font-bold text-gold-600">
+                  {{ densite }}
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Carats</label>
+                <div class="text-2xl font-bold text-gold-600">
+                  {{ selectedCarat?.carat || '--' }}K
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Pureté estimée</label>
+                <div class="text-2xl font-bold text-gold-600">
+                  {{ purete }}%
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gold-50 dark:bg-gold-900/20 rounded-lg p-4 border border-gold-200 dark:border-gold-800">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
                 <label class="block text-sm font-medium mb-1">Montant total</label>
                 <div class="text-2xl font-bold text-gold-600">
-                  {{ totalPrice }}
+                  {{ montantTotal }} XOF
                 </div>
               </div>
               

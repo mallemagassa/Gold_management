@@ -5,6 +5,7 @@ import Button from '@/components/ui/button/Button.vue'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { Scale, BadgeDollarSign, User, Receipt, Calendar, Gauge, Hash } from 'lucide-vue-next'
+import { computed } from "vue";
 
 const props = defineProps({
   localgoldpurchase: Object,
@@ -23,15 +24,33 @@ function formatDate(value) {
 }
 
 function formatCurrency(value, currency = 'XOF') {
+  if (!value) return '0 XOF'
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
-    currency: currency
+    currency: currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
   }).format(value)
 }
 
 function getStatusBadgeVariant(status) {
   return status === 'paid' ? 'success' : 'warning'
 }
+
+// Calcul de la pureté pour affichage
+const purete = computed(() => {
+  if (props.localgoldpurchase.bareme_designation_carat?.carat) {
+    return ((props.localgoldpurchase.bareme_designation_carat.carat * 100) / 24).toFixed(2)
+  }
+  return props.localgoldpurchase.purity_estimated || '0.00'
+})
+
+// Formatage du carat
+const caratDisplay = computed(() => {
+  return props.localgoldpurchase.bareme_designation_carat?.carat 
+    ? `${props.localgoldpurchase.bareme_designation_carat.carat}K` 
+    : '--'
+})
 </script>
 
 <template>
@@ -62,7 +81,9 @@ function getStatusBadgeVariant(status) {
         <CardHeader class="pb-3">
           <CardTitle class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div class="flex items-center gap-3">
-              <span class="text-xl md:text-2xl font-semibold text-gold-600">Achat de {{ localgoldpurchase.supplier?.name }}</span>
+              <span class="text-xl md:text-2xl font-semibold text-gold-600">
+                Achat de {{ localgoldpurchase.supplier?.name || 'Non spécifié' }}
+              </span>
               <Badge :variant="getStatusBadgeVariant(localgoldpurchase.payment_status)" class="text-sm md:text-base">
                 {{ localgoldpurchase.payment_status === 'paid' ? 'Payé' : 'En attente' }}
               </Badge>
@@ -83,21 +104,33 @@ function getStatusBadgeVariant(status) {
             </div>
             
             <div class="space-y-4 pl-9">
-              <div class="space-y-1">
-                <h4 class="text-sm font-medium text-gray-500">Fournisseur</h4>
-                <p class="text-base font-semibold">{{ localgoldpurchase.supplier?.name || 'Non spécifié' }}</p>
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-1">
+                  <h4 class="text-sm font-medium text-gray-500">Poids à l'air</h4>
+                  <p class="text-base font-semibold">{{ localgoldpurchase.weight_grams_max }} g</p>
+                </div>
+
+                <div class="space-y-1">
+                  <h4 class="text-sm font-medium text-gray-500">Poids à l'eau</h4>
+                  <p class="text-base font-semibold">{{ localgoldpurchase.weight_grams_min }} g</p>
+                </div>
               </div>
 
               <div class="grid grid-cols-2 gap-4">
                 <div class="space-y-1">
-                  <h4 class="text-sm font-medium text-gray-500">Poids</h4>
-                  <p class="text-base font-semibold">{{ localgoldpurchase.weight_grams }} g</p>
+                  <h4 class="text-sm font-medium text-gray-500">Densité</h4>
+                  <p class="text-base font-semibold">{{ localgoldpurchase.densite }}</p>
                 </div>
 
                 <div class="space-y-1">
-                  <h4 class="text-sm font-medium text-gray-500">Pureté</h4>
-                  <p class="text-base font-semibold">{{ localgoldpurchase.purity_estimated }}%</p>
+                  <h4 class="text-sm font-medium text-gray-500">Carats</h4>
+                  <p class="text-base font-semibold">{{ caratDisplay }}</p>
                 </div>
+              </div>
+
+              <div class="space-y-1">
+                <h4 class="text-sm font-medium text-gray-500">Pureté estimée</h4>
+                <p class="text-base font-semibold">{{ purete }}%</p>
               </div>
             </div>
           </div>
@@ -118,13 +151,18 @@ function getStatusBadgeVariant(status) {
 
                 <div class="space-y-1">
                   <h4 class="text-sm font-medium text-gray-500">Taux local</h4>
-                  <p class="text-base font-semibold">{{ formatCurrency(localgoldpurchase.local_rate?.rate_per_gram) }}/g</p>
+                  <p class="text-base font-semibold">
+                    {{ formatCurrency(localgoldpurchase.local_rate?.rate_per_gram) }}/g
+                  </p>
                 </div>
               </div>
 
               <div class="space-y-1">
-                <h4 class="text-sm font-medium text-gray-500">Référence</h4>
-                <p class="text-base font-semibold font-mono">{{ localgoldpurchase.receipt_reference }}</p>
+                <h4 class="text-sm font-medium text-gray-500">Calcul prix/gramme</h4>
+                <p class="text-sm text-muted-foreground">
+                  Taux ({{ formatCurrency(localgoldpurchase.local_rate?.rate_per_gram) }}) 
+                  × (Carat {{ caratDisplay }}/24)
+                </p>
               </div>
             </div>
           </div>
@@ -142,6 +180,9 @@ function getStatusBadgeVariant(status) {
                 <p class="text-2xl md:text-3xl font-bold text-gold-600">
                   {{ formatCurrency(localgoldpurchase.total_price) }}
                 </p>
+                <p class="text-sm text-muted-foreground">
+                  {{ localgoldpurchase.weight_grams_max }}g × {{ formatCurrency(localgoldpurchase.local_rate?.rate_per_gram) }}
+                </p>
               </div>
               
               <div class="grid grid-cols-2 gap-4">
@@ -156,6 +197,11 @@ function getStatusBadgeVariant(status) {
                   <h4 class="text-sm font-medium text-gray-500">Agent</h4>
                   <p class="text-base font-semibold">{{ localgoldpurchase.agent?.name || 'Non spécifié' }}</p>
                 </div>
+              </div>
+
+              <div class="space-y-1">
+                <h4 class="text-sm font-medium text-gray-500">Référence</h4>
+                <p class="text-base font-semibold font-mono">{{ localgoldpurchase.receipt_reference }}</p>
               </div>
             </div>
           </div>

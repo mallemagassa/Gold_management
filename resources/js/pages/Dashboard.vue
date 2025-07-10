@@ -100,7 +100,7 @@ function formatDate(dateString: string): string {
           </div>
         </div>
 
-        <h3 class="text-lg font-medium mb-4">Recent Purchases</h3>
+        <h3 class="text-lg font-medium mb-4">Achats Récentes</h3>
         <Table>
           <TableHeader>
             <TableRow>
@@ -113,7 +113,7 @@ function formatDate(dateString: string): string {
             <TableRow v-for="(purchase, index) in recentPurchasesLocal" :key="index">
               <TableCell>{{ purchase.supplier.name }}</TableCell>
               <TableCell>{{ purchase.weight_grams }}</TableCell>
-              <TableCell>{{ formatDate(purchase.created_at) }}</TableCell>
+              <TableCell>{{ formatDate(purchase.purchase_date) }}</TableCell>
             </TableRow>
           </TableBody>
         </Table>
@@ -142,7 +142,7 @@ function formatDate(dateString: string): string {
             <TableRow v-for="(sale, index) in recentSales" :key="index">
               <TableCell>{{ sale.buyer_name }}</TableCell>
               <TableCell>{{ sale.weight_sold }} g</TableCell>
-              <TableCell>{{ formatDate(sale.created_at) }}</TableCell>
+              <TableCell>{{ formatDate(sale.sale_date) }}</TableCell>
             </TableRow>
           </TableBody>
         </Table>
