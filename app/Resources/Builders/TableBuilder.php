@@ -13,16 +13,26 @@ class TableBuilder
     protected string $modelClass;
     protected array $callbacks = [];
     protected array $relations = [];
+    protected array $orders = [];
 
     public function __construct(string $modelClass)
     {
         $this->modelClass = $modelClass;
-        $this->query = $modelClass::query();
+        $this->query = $modelClass::query()->latest();
     }
 
     public function query(\Closure $callback): self
     {
         $callback($this->query);
+        return $this;
+    }
+
+    public function orderBy(string $column, string $direction = 'asc'): self
+    {
+        $this->orders[] = [
+            'column' => $column,
+            'direction' => $direction,
+        ];
         return $this;
     }
 
@@ -64,6 +74,10 @@ class TableBuilder
     public function make(): array
     {
         $this->query->with($this->relations);
+
+        foreach ($this->orders as $order) {
+            $this->query->orderBy($order['column'], $order['direction']);
+        }
 
         $records = $this->query->paginate(100);
 

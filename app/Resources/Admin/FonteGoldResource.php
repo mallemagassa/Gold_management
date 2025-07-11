@@ -83,7 +83,10 @@ class FonteGoldResource extends Resource
             ->field('total_price', 'number', ['readonly' => true])
             ->field('fonte_date', 'date', ['required' => true])
             ->field('local_rate_id', 'select', [
-                'options' => LocalRate::pluck('rate_per_gram', 'id'),
+                'options' =>function() {
+                $latest = LocalRate::latest()->first();
+                return $latest ? [$latest->id => $latest->rate_per_gram] : [];
+            },
                 'required' => true
             ])
             ->make();
@@ -159,7 +162,10 @@ class FonteGoldResource extends Resource
                 'value' => $fontegold->fonte_date //->format('Y-m-d')
             ])
             ->field('local_rate_id', 'select', [
-                'options' => LocalRate::pluck('rate_per_gram', 'id'),
+                'options' =>function() {
+                $latest = LocalRate::latest()->first();
+                return $latest ? [$latest->id => $latest->rate_per_gram] : [];
+            },
                 'value' => $fontegold->local_rate_id,
                 'required' => true
             ])

@@ -104,15 +104,17 @@ function formatDate(dateString: string): string {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Weight (g)</TableHead>
+              <TableHead>Fournisseur</TableHead>
+              <TableHead>Poids à l'air (g)</TableHead>
+              <TableHead>Poids à l'eau (g)</TableHead>
               <TableHead>Purchase Date</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             <TableRow v-for="(purchase, index) in recentPurchasesLocal" :key="index">
               <TableCell>{{ purchase.supplier.name }}</TableCell>
-              <TableCell>{{ purchase.weight_grams }}</TableCell>
+              <TableCell>{{ purchase.weight_grams_max }}</TableCell>
+              <TableCell>{{ purchase.weight_grams_min }}</TableCell>
               <TableCell>{{ formatDate(purchase.purchase_date) }}</TableCell>
             </TableRow>
           </TableBody>

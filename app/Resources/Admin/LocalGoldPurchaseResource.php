@@ -110,7 +110,10 @@ class LocalGoldPurchaseResource extends Resource
         ->field('purchase_date', 'date', ['required' => true])
         // ->field('local_rate_id', 'number', ['required' => true])
         ->field('local_rate_id', 'select', [
-            'options' => LocalRate::pluck('rate_per_gram', 'id'),
+            'options' => function() {
+                $latest = LocalRate::latest()->first();
+                return $latest ? [$latest->id => $latest->rate_per_gram] : [];
+            },
             'required' => true
         ])
         ->field('payment_status', 'select', ['required' => true,
@@ -200,7 +203,10 @@ class LocalGoldPurchaseResource extends Resource
                 'value' => $localgoldpurchase->purchase_date//->format('Y-m-d')
             ])
             ->field('local_rate_id', 'select', [
-                'options' => LocalRate::pluck('rate_per_gram', 'id'),
+                'options' =>function() {
+                $latest = LocalRate::latest()->first();
+                return $latest ? [$latest->id => $latest->rate_per_gram] : [];
+            },
                 'value' => $localgoldpurchase->local_rate_id,
                 'required' => true
             ])

@@ -42,6 +42,7 @@ class LocalRateResource extends Resource
     public static function index(): \Inertia\Response
     {
         $table = (new TableBuilder(static::$model))
+        ->orderBy('effective_date', 'desc')
         ->column('rate_per_gram', 'Rate Per Gram')
         ->column('currency', 'Currency')
         ->column('effective_date', 'Effective Date')

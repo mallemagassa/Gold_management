@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\LocalRate;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Gate;
@@ -79,8 +80,12 @@ class AppServiceProvider extends ServiceProvider
         Gate::before(function ($user, $ability) {
             return $user->hasRole('admin') ? true : null;
         });
-
+        
         Inertia::share([
+           'localRate' => function() {
+                $latest = LocalRate::latest()->first();
+                return $latest ? ['id' => $latest->id, 'rate_per_gram' => $latest->rate_per_gram] : ['rate_per_gram' => 0];
+            },
             'resources' => function () {
                 $panel = PanelServiceProvider::getActivePanel();
                 $config = PanelServiceProvider::getPanelConfig($panel);
