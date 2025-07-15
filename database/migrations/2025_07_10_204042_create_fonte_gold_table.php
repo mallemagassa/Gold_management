@@ -13,15 +13,12 @@ return new class extends Migration
     {
         Schema::create('fonte_gold', function (Blueprint $table) {
             $table->id();
-            $table->decimal('weight_grams_min');
-            $table->decimal('weight_grams_max');
-            $table->decimal('densite');
+            $table->decimal('weight_total_after_fonte');
+            $table->decimal('weight_total_before_fonte');
+            $table->decimal('court_fonte');
             $table->decimal('purity_estimated', 5, 2)->nullable();
-            $table->decimal('price_per_gram_local', 10, 2);
             $table->decimal('total_price', 12, 2);
             $table->date('fonte_date');
-            $table->foreignId('local_rate_id')->nullable()->constrained('local_rates');            
-            $table->foreignId('bareme_designation_carat_id')->constrained('bareme_designation_carats')->onDelete('cascade');
             $table->timestamps();
         });
     }

@@ -48,9 +48,9 @@ class PanelServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        foreach (static::$panels as $panel => $config) {
-            $this->registerPanelRoutes($panel, $config);
-        }
+        // foreach (static::$panels as $panel => $config) {
+        //     $this->registerPanelRoutes($panel, $config);
+        // }
     }
 
     protected function registerPanelRoutes(string $panel, array $config): void

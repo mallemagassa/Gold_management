@@ -14,15 +14,7 @@ class GoldInventory extends Model
 
     use HasFactory;
 
-    protected $fillable = ['refining_batch_id', 'weight_available', 'location', 'status'];
-
-    public function batch(): BelongsTo
-    {
-        return $this->belongsTo(RefiningBatche::class, 'refining_batch_id');
-    }
-
-    public function shipmentItems(): HasMany
-    {
-        return $this->hasMany(ShipmentItem::class, 'inventory_id');
-    }
+    protected $fillable = [
+        'court', 
+    ];
 }

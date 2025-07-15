@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('gold_inventorys', function (Blueprint $table) {
+        Schema::create('gold_inventory_items', function (Blueprint $table) {
             $table->id();
             $table->decimal('court', 10, 2);
+            $table->decimal('weight_available', 10, 2);
+            $table->foreignId('gold_inventory_id');
             $table->timestamps();
         });
     }
@@ -23,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('gold_inventories');
+        Schema::dropIfExists('gold_inventory_items');
     }
 };

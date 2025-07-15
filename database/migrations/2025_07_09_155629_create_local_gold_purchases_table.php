@@ -14,17 +14,9 @@ return new class extends Migration
         Schema::create('local_gold_purchases', function (Blueprint $table) {
             $table->id();
             $table->foreignId('supplier_id')->nullable()->constrained('suppliers')->nullOnDelete();
-            $table->decimal('weight_grams_min');
-            $table->decimal('weight_grams_max');
-            $table->decimal('densite');
-            $table->decimal('purity_estimated', 5, 2)->nullable();
-            $table->decimal('price_per_gram_local', 10, 2);
-            $table->decimal('total_price', 12, 2);
             $table->date('purchase_date');
-            $table->foreignId('local_rate_id')->nullable()->constrained('local_rates');
             $table->enum('payment_status', ['pending', 'paid'])->default('pending');
             $table->foreignId('agent_id')->constrained('users');
-            $table->foreignId('bareme_designation_carat_id')->constrained('bareme_designation_carats')->onDelete('cascade');
             $table->string('receipt_reference')->nullable();
             $table->timestamps();
         });
