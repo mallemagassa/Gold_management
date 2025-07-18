@@ -16,7 +16,7 @@ class GoldMarketPriceResource extends Resource
     
     protected static string $model = GoldMarketPrice::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Gold Market Price';
+    public static string $label = "Prix du marché de l’or";
 
     
 

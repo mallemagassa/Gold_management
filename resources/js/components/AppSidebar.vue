@@ -27,7 +27,7 @@ const resources = computed(() => props.resources ?? [])
 const mainNavItems = computed<NavItem[]>(() => {
   const items = [
     {
-        title: 'Tableau De Board',
+        title: 'Tableau De Bord',
         href: '/admin',
         icon: LayoutGrid,
     },
@@ -78,7 +78,7 @@ const footerNavItems: NavItem[] = [
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
                         <Link :href="route('admin.dashboard')">
-                            <h3>Gold Management</h3>
+                            <h3>Yiriwa Gold</h3>
                             <!-- <AppLogo /> -->
                         </Link>
                     </SidebarMenuButton>

@@ -14,18 +14,13 @@ class LocalGoldPurchaseItem extends Model
         'purity_estimated',
         'price_per_gram_local',
         'total_price',
-        'local_rate_id',
+        'local_rate',
         'bareme_designation_carat_id',
         'local_gold_purchase_id',
     ];
 
     public function baremeDesignationCarat(): BelongsTo{
         return $this->belongsTo(BaremeDesignationCarat::class);
-    }
-
-    public function localRate(): BelongsTo
-    {
-        return $this->belongsTo(LocalRate::class);
     }
 
     public function localGoldPurchase(): BelongsTo

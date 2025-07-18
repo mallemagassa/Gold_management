@@ -17,7 +17,7 @@ class RefiningBatcheResource extends Resource
     
     protected static string $model = RefiningBatche::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Refining Batche';
+    public static string $label = "Lot de raffinage";
 
     
     public static function responsibleOptions(): array

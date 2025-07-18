@@ -16,7 +16,7 @@ class SupplierResource extends Resource
     
     protected static string $model = Supplier::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Fournisseurs';
+    public static string $label = 'Gestion Fournisseurs';
 
     
 

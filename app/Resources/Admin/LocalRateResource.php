@@ -17,7 +17,7 @@ class LocalRateResource extends Resource
     
     protected static string $model = LocalRate::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Local Rate';
+    public static string $label = 'Taux Local';
 
     
     public static function creatorOptions(): array

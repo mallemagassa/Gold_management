@@ -17,7 +17,7 @@ class GoldSaleResource extends Resource
     
     protected static string $model = GoldSale::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Gold Sale';
+    public static string $label = "Vente d'Or";
 
     
     public static function shipmentOptions(): array

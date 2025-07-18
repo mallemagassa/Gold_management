@@ -19,7 +19,7 @@ class LocalGoldPurchaseResource extends Resource
     
     protected static string $model = LocalGoldPurchase::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Local Gold Purchase';
+    public static string $label = "Achat d'Or Local";
 
     
     public static function supplierOptions(): array
@@ -53,17 +53,11 @@ class LocalGoldPurchaseResource extends Resource
     public static function index(): \Inertia\Response
     {
         $table = (new TableBuilder(static::$model))
-        ->column('supplier.name', 'Supplier') 
-        ->column('weight_grams_max', 'Max')
-        ->column('weight_grams_min', 'Min')
-        ->column('purity_estimated', 'Purity Estimated')
-        ->column('price_per_gram_local', 'Price Per Gram Local')
-        ->column('total_price', 'Total Price')
-        ->column('purchase_date', 'Purchase Date')
-        ->column('localRate.rate_per_gram', 'Local Rate Id')
-        ->column('payment_status', 'Payment Status')
-        ->column('agent.name', 'Agent')
-        ->column('receipt_reference', 'Receipt Reference')
+        ->column('supplier.name', 'Fournisseur') 
+        ->column('purchase_date', "Date d'Achat")
+        ->column('payment_status', 'Status Payement ')
+        ->column('agent.name', 'Nom Agent')
+        ->column('receipt_reference', 'Référence du Reçu')
         ->make();
 
         return Inertia::render(static::getComponentPath('index'), [
@@ -72,20 +66,22 @@ class LocalGoldPurchaseResource extends Resource
         ]);
     }
 
+    // Dans votre contrôleur
     public static function show($id): \Inertia\Response
     {
         $relations = array_merge(static::$model::relationsToLoad(), [
             'baremeDesignationCarat',
-            'localRate',
             'supplier',
-            'agent'
+            'agent',
+            'items' // Charger les items associés
         ]);
         
         $localgoldpurchase = static::$model::with($relations)->findOrFail($id);
-    
+
         return Inertia::render(static::getComponentPath('show'), [
             'localgoldpurchase' => $localgoldpurchase,
             'resource' => static::getResourceData($localgoldpurchase),
+            'baremeOptions' => BaremeDesignationCarat::all(), // Pour les calculs de carat
         ]);
     }
     
@@ -93,122 +89,78 @@ class LocalGoldPurchaseResource extends Resource
     public static function create(): \Inertia\Response
     {
         $form = (new FormBuilder())
-        ->field('supplier_id', 'select', [
-                        'options' => Supplier::pluck('name', 'id'),
-                        'required' => true
-                    ])
-        ->field('weight_grams_min', 'number', ['required' => true])
-        ->field('weight_grams_max', 'number', ['required' => true])
-        ->field('densite', 'number', ['required' => true])
-        // ->field('bareme_designation_carat_id', 'select', [
-        //     'options' => BaremeDesignationCarat::pluck('carat', 'id'),
-        //     'required' => true
-        // ])
-        ->field('purity_estimated', 'text', ['required' => true])
-        ->field('price_per_gram_local', 'text', ['required' => true])
-        ->field('total_price', 'text', ['required' => true])
-        ->field('purchase_date', 'date', ['required' => true])
-        // ->field('local_rate_id', 'number', ['required' => true])
-        ->field('local_rate_id', 'select', [
-            'options' => function() {
-                $latest = LocalRate::latest()->first();
-                return $latest ? [$latest->id => $latest->rate_per_gram] : [];
-            },
-            'required' => true
-        ])
-        ->field('payment_status', 'select', ['required' => true,
-                            'options' => [
-                            'pending' => 'pending',
-                            'paid' => 'paid'
-                                    ],])
-        ->field('agent_id', 'select', [
-                        'options' => \App\Models\User::pluck('name', 'id'),
-                        'required' => true
-                    ])
-        ->field('receipt_reference', 'text', ['required' => true])
-        ->make();
-
+            ->field('supplier_id', 'select', [
+                'options' => Supplier::pluck('name', 'id'),
+                'required' => true
+            ])
+            ->field('purchase_date', 'date', ['required' => true])
+            ->field('payment_status', 'select', [
+                'required' => true,
+                'options' => [
+                    'pending' => 'pending',
+                    'paid' => 'paid'
+                ],
+            ])
+            ->field('agent_id', 'select', [
+                'options' => User::pluck('name', 'id'),
+                'required' => true
+            ])
+            ->field('receipt_reference', 'text', ['required' => true])
+            ->make();
+    
         return Inertia::render(static::getComponentPath('create'), [
             'form' => $form,
             'baremeOptions' => BaremeDesignationCarat::all()->toArray(),
             'resource' => static::getResourceData(),
         ]);
     }
-
+    
     public static function store(): \Illuminate\Http\RedirectResponse
     {
         $data = request()->validate([
             'supplier_id' => 'required|exists:suppliers,id',
-            'weight_grams_min' => 'numeric|required',
-            'weight_grams_max' => 'numeric|required',
-            'densite' => 'numeric|required',
-            'purity_estimated' => 'string|required',
-            'price_per_gram_local' => 'string|required',
-            'total_price' => 'string|required',
             'purchase_date' => 'date|required',
-            'local_rate_id' => 'integer|required',
-            'bareme_designation_carat_id' => 'integer|required',
-            'payment_status' => 'string|required',
+            'payment_status' => 'string|required|in:pending,paid',
             'agent_id' => 'required|exists:users,id',
-            'receipt_reference' => 'string|required',
-            
+            'receipt_reference' => 'string|required|max:255',
+            'items' => 'required|array|min:1',
+            'items.*.weight_grams_min' => 'required|numeric|min:0',
+            'items.*.weight_grams_max' => 'required|numeric|min:0|gt:items.*.weight_grams_min',
+            'items.*.densite' => 'required|numeric|min:0',
+            'items.*.bareme_designation_carat_id' => 'required|exists:bareme_designation_carats,id',
+            'items.*.purity_estimated' => 'required|numeric|min:0|max:100',
+            'items.*.price_per_gram_local' => 'required|numeric|min:0',
+            'items.*.total_price' => 'required|numeric|min:0',
+            'items.*.local_rate' => 'required|numeric|min:0',
+        ], [
+            'items.*.weight_grams_max.gt' => 'Le poids à l\'air doit être supérieur au poids à l\'eau',
+            'items.required' => 'Au moins un article est requis',
+            'items.*.required' => 'Tous les champs de l\'article sont obligatoires',
         ]);
-
-        static::$model::create($data);
-
-        return redirect()->route(static::getRouteName('index'));
+    
+        $purchase = LocalGoldPurchase::create($data);
+    
+        foreach ($data['items'] as $item) {
+            $purchase->items()->create($item);
+        }
+    
+        return redirect()->route(static::getRouteName('index'))
+            ->with('success', 'Achat enregistré avec succès');
     }
 
     public static function edit($id): \Inertia\Response
     {
-        $localgoldpurchase = static::$model::findOrFail($id);
-    
+        $localgoldpurchase = static::$model::with('items')->findOrFail($id);
+
         $form = (new FormBuilder())
             ->field('supplier_id', 'select', [
                 'options' => Supplier::pluck('name', 'id'),
                 'value' => $localgoldpurchase->supplier_id,
                 'required' => true
             ])
-            ->field('weight_grams_min', 'number', [
-                'required' => true,
-                'value' => $localgoldpurchase->weight_grams_min
-            ])
-            ->field('weight_grams_max', 'number', [
-                'required' => true,
-                'value' => $localgoldpurchase->weight_grams_max
-            ])
-            ->field('densite', 'number', [
-                'required' => true,
-                'value' => $localgoldpurchase->densite
-            ])
-            ->field('bareme_designation_carat_id', 'select', [
-                'options' => BaremeDesignationCarat::pluck('carat', 'id'),
-                'value' => $localgoldpurchase->bareme_designation_carat_id,
-                'required' => true
-            ])
-            ->field('purity_estimated', 'text', [
-                'required' => true,
-                'value' => $localgoldpurchase->purity_estimated
-            ])
-            ->field('price_per_gram_local', 'text', [
-                'required' => true,
-                'value' => $localgoldpurchase->price_per_gram_local
-            ])
-            ->field('total_price', 'text', [
-                'required' => true,
-                'value' => $localgoldpurchase->total_price
-            ])
             ->field('purchase_date', 'date', [
                 'required' => true,
-                'value' => $localgoldpurchase->purchase_date//->format('Y-m-d')
-            ])
-            ->field('local_rate_id', 'select', [
-                'options' =>function() {
-                $latest = LocalRate::latest()->first();
-                return $latest ? [$latest->id => $latest->rate_per_gram] : [];
-            },
-                'value' => $localgoldpurchase->local_rate_id,
-                'required' => true
+                'value' => $localgoldpurchase->purchase_date
             ])
             ->field('payment_status', 'select', [
                 'required' => true,
@@ -228,37 +180,65 @@ class LocalGoldPurchaseResource extends Resource
                 'value' => $localgoldpurchase->receipt_reference
             ])
             ->make();
-    
+
         return Inertia::render(static::getComponentPath('edit'), [
             'localgoldpurchase' => $localgoldpurchase,
             'form' => $form,
             'resource' => static::getResourceData($localgoldpurchase),
-            'baremeOptions' => BaremeDesignationCarat::all()->toArray()
+            'baremeOptions' => BaremeDesignationCarat::all()->toArray(),
+            'localRateOptions' => LocalRate::latest()->first() ? [LocalRate::latest()->first()->id => LocalRate::latest()->first()->rate_per_gram] : [],
         ]);
     }
+
     public static function update($id): \Illuminate\Http\RedirectResponse
     {
         $localgoldpurchase = static::$model::findOrFail($id);
-    
+
         $data = request()->validate([
             'supplier_id' => 'required|exists:suppliers,id',
-            'weight_grams_min' => 'numeric|required',
-            'weight_grams_max' => 'numeric|required',
-            'densite' => 'numeric|required',
-            'purity_estimated' => 'string|required',
-            'price_per_gram_local' => 'string|required',
-            'total_price' => 'string|required',
             'purchase_date' => 'date|required',
-            'local_rate_id' => 'integer|required',
-            'payment_status' => 'string|required',
-            'bareme_designation_carat_id' => 'integer|required',
+            'payment_status' => 'string|required|in:pending,paid',
             'agent_id' => 'required|exists:users,id',
-            'receipt_reference' => 'string|required',
-            
+            'receipt_reference' => 'string|required|max:255',
+            'items' => 'required|array|min:1',
+            'items.*.weight_grams_min' => 'required|numeric|min:0',
+            'items.*.weight_grams_max' => 'required|numeric|min:0|gt:items.*.weight_grams_min',
+            'items.*.densite' => 'required|numeric|min:0',
+            'items.*.bareme_designation_carat_id' => 'required|exists:bareme_designation_carats,id',
+            'items.*.purity_estimated' => 'required|numeric|min:0|max:100',
+            'items.*.price_per_gram_local' => 'required|numeric|min:0',
+            'items.*.total_price' => 'required|numeric|min:0',
+            'items.*.local_rate' => 'required|numeric|min:0',
+        ], [
+            'items.*.weight_grams_max.gt' => 'Le poids à l\'air doit être supérieur au poids à l\'eau',
+            'items.required' => 'Au moins un article est requis',
+            'items.*.required' => 'Tous les champs de l\'article sont obligatoires',
         ]);
-    
+        // Mettre à jour l'achat principal
         $localgoldpurchase->update($data);
-    
+
+        // Gérer les items (création, mise à jour, suppression)
+        $existingItems = $localgoldpurchase->items()->pluck('id')->toArray();
+        $updatedItems = [];
+
+        foreach ($data['items'] as $item) {
+            if (isset($item['id'])) {
+                // Mise à jour d'un item existant
+                $localgoldpurchase->items()->where('id', $item['id'])->update($item);
+                $updatedItems[] = $item['id'];
+            } else {
+                // Création d'un nouvel item
+                $newItem = $localgoldpurchase->items()->create($item);
+                $updatedItems[] = $newItem->id;
+            }
+        }
+
+        // Supprimer les items qui ne sont plus dans la liste
+        $itemsToDelete = array_diff($existingItems, $updatedItems);
+        if (!empty($itemsToDelete)) {
+            $localgoldpurchase->items()->whereIn('id', $itemsToDelete)->delete();
+        }
+
         return redirect()->route(static::getRouteName('index'));
     }
 
@@ -274,3 +254,6 @@ class LocalGoldPurchaseResource extends Resource
         return static::$panel . '/Resources/' . class_basename(static::class) . '/' . $view;
     }
 }
+
+
+ 

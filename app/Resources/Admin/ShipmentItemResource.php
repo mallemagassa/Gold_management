@@ -17,7 +17,7 @@ class ShipmentItemResource extends Resource
     
     protected static string $model = ShipmentItem::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Shipment Item';
+    public static string $label = "Article d'expédition";
 
     
     public static function shipmentOptions(): array

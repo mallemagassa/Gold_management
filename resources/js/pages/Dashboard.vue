@@ -16,7 +16,7 @@ import { Link } from '@inertiajs/vue3'
 
 const breadcrumbs: BreadcrumbItem[] = [
   {
-    title: 'Dashboard',
+    title: 'Tableau de Bord',
     href: '/dashboard',
   },
 ];
@@ -31,9 +31,9 @@ console.log(props.recentPurchasesLocal);
 
 
 const stats = [
-  { title: 'Total Gold Stock', value: '89,2 g', trend: 'up' },
+  { title: 'Stock Total d’Or', value: '89,2 g', trend: 'up' },
   { title: 'Avg Purchase Price', value: '32,400 XOF/g', trend: 'stable' },
-  { title: 'Monthly Sales', value: '108,9 g', trend: 'up' },
+  { title: 'Ventes Mensuelles', value: '108,9 g', trend: 'up' },
 ];
 
 function formatDate(dateString: string): string {
@@ -48,11 +48,11 @@ function formatDate(dateString: string): string {
 </script>
 
 <template>
-  <Head title="Dashboard" />
+  <Head title="Tableau de Bord" />
 
   <AppLayout :breadcrumbs="breadcrumbs">
     <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-      <h1 class="text-2xl font-bold">Gold Management</h1>
+      <h1 class="text-2xl font-bold">Yiriwa Gold</h1>
 
       <!-- Widgets de statistiques -->
       <div class="grid gap-4 md:grid-cols-3">
@@ -91,12 +91,12 @@ function formatDate(dateString: string): string {
         </div>
 
         <div class="mb-6">
-          <h3 class="text-lg font-medium mb-2">Local Purchases</h3>
+          <h3 class="text-lg font-medium mb-2">Achats Locaux</h3>
           <div class="flex flex-wrap gap-2">
-            <Button variant="outline">Processing</Button>
-            <Button variant="outline">Shipments</Button>
-            <Button variant="outline">Sales</Button>
-            <Button variant="outline">Market Data</Button>
+            <Button variant="outline">Traitement</Button>
+            <Button variant="outline">Expéditions</Button>
+            <Button variant="outline">Ventes</Button>
+            <Button variant="outline">Données de marché</Button>
           </div>
         </div>
 
@@ -107,7 +107,7 @@ function formatDate(dateString: string): string {
               <TableHead>Fournisseur</TableHead>
               <TableHead>Poids à l'air (g)</TableHead>
               <TableHead>Poids à l'eau (g)</TableHead>
-              <TableHead>Purchase Date</TableHead>
+              <TableHead>Date d'Achat</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -135,9 +135,9 @@ function formatDate(dateString: string): string {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Buyer</TableHead>
-              <TableHead>Weight (g)</TableHead>
-              <TableHead>Sale Date</TableHead>
+              <TableHead>Acheteur</TableHead>
+              <TableHead>poids (g)</TableHead>
+              <TableHead>Date Ventes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

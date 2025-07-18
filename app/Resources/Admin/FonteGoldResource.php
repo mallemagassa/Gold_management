@@ -17,7 +17,7 @@ class FonteGoldResource extends Resource
     
     protected static string $model = FonteGold::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Fonte Gold';
+    public static string $label = "Fonte d'Or";
 
     
     public static function localRateOptions(): array

@@ -18,7 +18,7 @@ class GoldShipmentResource extends Resource
     
     protected static string $model = GoldShipment::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Gold Shipment';
+    public static string $label = "Expédition d'or";
 
     
     public static function creatorOptions(): array

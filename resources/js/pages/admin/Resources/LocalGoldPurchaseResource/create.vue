@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { Head, Link, useForm } from '@inertiajs/vue3'
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Button from '@/components/ui/button/Button.vue'
@@ -8,336 +8,519 @@ import { toast } from 'vue-sonner'
 import Select from '@/components/ui/select/Select.vue'
 import SelectItem from '@/components/ui/select/SelectItem.vue'
 import { SelectTrigger, SelectValue, SelectContent } from '@/components/ui/select'
-import { Scale, BadgeDollarSign, User, Receipt } from 'lucide-vue-next'
+import { Scale, BadgeDollarSign, User, Receipt, Plus, Trash2 } from 'lucide-vue-next'
+import { Check, Pencil, X } from 'lucide-vue-next'
+
+const { props: pageProps } = usePage()
+
+let localRate = ref({ rate_per_gram: 0 });
+
+if (pageProps?.localRate) {
+  localRate.value = pageProps.localRate
+}
 
 const props = defineProps({
   form: Object,
   resource: Object,
-  baremeOptions: Array
+  baremeOptions: Array,
+  localRateOptions: Object,
+  localgoldpurchase: Object
 })
 
-// Extraire les options des selects
-const supplierOptions = computed(() => props.form.supplier_id?.options?.options || {})
-const caratOptions = computed(() => props.form.bareme_designation_carat_id?.options?.options || {})
-const localRateOptions = computed(() => props.form.local_rate_id?.options?.options || {})
-const agentOptions = computed(() => props.form.agent_id?.options?.options || {})
+const generateId = () => Math.random().toString(36).substring(2, 9)
 
-const form = useForm({
-  supplier_id: '',
+const initialItem = () => ({
+  id: generateId(),
   weight_grams_min: '',
   weight_grams_max: '',
   densite: '',
   bareme_designation_carat_id: '',
-  carat: '',
   purity_estimated: '',
   price_per_gram_local: '',
   total_price: '',
-  purchase_date: new Date().toISOString().split('T')[0],
-  local_rate_id: '',
-  payment_status: 'pending',
-  agent_id: '',
-  receipt_reference: ''
+  local_rate: localRate.value.rate_per_gram,
+  editingRate: false
 })
 
-// Fonction pour nettoyer les valeurs numériques
+const items = ref(
+  props.localgoldpurchase?.items?.length 
+    ? props.localgoldpurchase.items.map(item => ({
+        ...item,
+        id: item.id || generateId()
+      }))
+    : [initialItem()]
+)
+
+const addItem = () => {
+  items.value.push(initialItem())
+}
+
+const removeItem = (index) => {
+  if (items.value.length > 1) {
+    items.value.splice(index, 1)
+  }
+}
+
+const form = useForm({
+  supplier_id: props.localgoldpurchase?.supplier_id || '',
+  purchase_date: props.localgoldpurchase?.purchase_date || new Date().toISOString().split('T')[0],
+  payment_status: props.localgoldpurchase?.payment_status || 'pending',
+  agent_id: props.localgoldpurchase?.agent_id || '',
+  receipt_reference: props.localgoldpurchase?.receipt_reference || '',
+  items: items.value
+}, {
+  resetOnSuccess: false
+})
+
+// Fonctions pour gérer les erreurs
+const getError = (field, index = null) => {
+  if (index !== null && field.startsWith('items')) {
+    return form.errors[`items.${index}.${field.split('.')[2]}`]
+  }
+  return form.errors[field]
+}
+
+const hasError = (field, index = null) => {
+  return !!getError(field, index)
+}
+
 const cleanNumber = (value) => {
+  if (!value) return 0
   return parseFloat(value.toString().replace(',', '.')) || 0
 }
 
-// Calcul de la densité
-const densite = computed(() => {
-  if (form.weight_grams_max && form.weight_grams_min) {
-    const poidsAir = cleanNumber(form.weight_grams_max)
-    const poidsEau = cleanNumber(form.weight_grams_min)
-    const difference = poidsAir - poidsEau
-    if (difference <= 0) return '0.00'
-    return (poidsAir / difference).toFixed(2)
-  }
-  return '0.00'
-})
-
-// Trouver le carat correspondant à la densité
-const selectedCarat = computed(() => {
-  if (!props.baremeOptions || densite.value === '0.00') return null
+const calculateItemValues = (item, index) => {
+  const poidsAir = cleanNumber(item.weight_grams_max)
+  const poidsEau = cleanNumber(item.weight_grams_min)
+  const difference = poidsAir - poidsEau
   
-  const densiteValue = parseFloat(densite.value)
-  return props.baremeOptions.find(item => 
-    densiteValue >= item.density_min && densiteValue <= item.density_max
-  )
-})
-
-// Calcul de la pureté
-const purete = computed(() => {
-  if (selectedCarat.value) {
-    return ((selectedCarat.value.carat * 100) / 24).toFixed(2)
-  }
-  return '0.00'
-})
-
-// Calcul du prix au gramme
-const pricePerGram = computed(() => {
-  if (form.local_rate_id && selectedCarat.value) {
-    const rate = cleanNumber(localRateOptions.value[form.local_rate_id])
-    return (rate * (selectedCarat.value.carat / 24)).toFixed(2)
-  }
-  return '0.00'
-})
-
-// Calcul du montant total
-const montantTotal = computed(() => {
-  if (form.weight_grams_max && form.local_rate_id) {
-    const poidsAir = cleanNumber(form.weight_grams_max)
-    const rate = cleanNumber(localRateOptions.value[form.local_rate_id])
-    return (poidsAir * rate).toFixed(2)
-  }
-  return '0.00'
-})
-
-// Watchers pour mettre à jour les champs automatiquement
-watch(densite, (newVal) => {
-  form.densite = newVal
-})
-
-watch(selectedCarat, (newVal) => {
-  if (newVal) {
-    form.bareme_designation_carat_id = newVal.id
-    form.carat = newVal.carat
+  if (poidsAir > 0 && poidsEau > 0 && difference > 0) {
+    items.value[index].densite = (poidsAir / difference).toFixed(2)
   } else {
-    form.bareme_designation_carat_id = ''
-    form.carat = ''
+    items.value[index].densite = '0.00'
   }
-})
 
-watch(purete, (newVal) => {
-  form.purity_estimated = newVal
-})
+  const densiteValue = parseFloat(items.value[index].densite)
+  const selectedCarat = props.baremeOptions.find(b => 
+    densiteValue >= b.density_min && densiteValue <= b.density_max
+  )
 
-watch(pricePerGram, (newVal) => {
-  form.price_per_gram_local = newVal
-})
+  if (selectedCarat) {
+    items.value[index].bareme_designation_carat_id = selectedCarat.id
+    items.value[index].purity_estimated = ((selectedCarat.carat * 100) / 24).toFixed(2)
+    
+    const rate = cleanNumber(item.local_rate)
+    const poids = cleanNumber(item.weight_grams_max)
+    
+    if (rate > 0 && poids > 0) {
+      items.value[index].price_per_gram_local = (rate * (selectedCarat.carat / 24)).toFixed(2)
+      items.value[index].total_price = (poids * rate).toFixed(2)
+    } else {
+      items.value[index].price_per_gram_local = '0.00'
+      items.value[index].total_price = '0.00'
+    }
+  } else {
+    items.value[index].bareme_designation_carat_id = ''
+    items.value[index].purity_estimated = '0.00'
+    items.value[index].price_per_gram_local = '0.00'
+    items.value[index].total_price = '0.00'
+  }
+}
 
-watch(montantTotal, (newVal) => {
-  form.total_price = newVal
-})
+watch(() => items.value.map(item => ({
+  weight_grams_max: item.weight_grams_max,
+  weight_grams_min: item.weight_grams_min,
+  local_rate: item.local_rate
+})), () => {
+  items.value.forEach((item, index) => {
+    calculateItemValues(item, index)
+  })
+}, { deep: true })
+
+const supplierOptions = computed(() => props.form.supplier_id?.options?.options || {})
+const agentOptions = computed(() => props.form.agent_id?.options?.options || {})
 
 function submitForm() {
-  form.post(props.resource.routes.store, {
-    onSuccess: () => {
-      toast.success('Achat enregistré avec succès')
-    },
-    onError: () => {
-      toast.error('Erreur lors de l\'enregistrement')
+  form.items = items.value
+  
+  form[props.localgoldpurchase ? 'put' : 'post'](
+    props.localgoldpurchase 
+      ? props.resource.routes.update.replace('{id}', props.localgoldpurchase.id)
+      : props.resource.routes.store,
+    {
+      onSuccess: () => {
+        toast.success('Achat enregistré avec succès')
+      },
+      onError: () => {
+        toast.error('Veuillez corriger les erreurs dans le formulaire')
+        setTimeout(() => {
+          const firstError = document.querySelector('.border-red-500')
+          if (firstError) {
+            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+        }, 100)
+      }
     }
-  })
+  )
+}
+
+const toggleEditRate = (index, cancel = false) => {
+  if (items.value[index].editingRate && cancel) {
+    items.value[index].local_rate = localRate.value.rate_per_gram
+  }
+  
+  items.value[index].editingRate = !items.value[index].editingRate
+  
+  if (!items.value[index].editingRate && !cancel) {
+    calculateItemValues(items.value[index], index)
+  }
+}
+
+const getCaratDisplay = (item) => {
+  const found = props.baremeOptions.find(b => b.id === item.bareme_designation_carat_id)
+  return found ? `${found.carat}K` : '0.00K'
 }
 </script>
 
 <template>
-  <Head :title="`Nouvel Achat d'Or Local`" />
+  <Head :title="`${localgoldpurchase ? 'Modifier' : 'Nouvel'} Achat d'Or Local`" />
 
   <AppLayout>
-    <div class="flex flex-col gap-6 p-4 max-w-4xl mx-auto">
-      <div class="flex justify-between items-center">
+    <div class="flex flex-col gap-6 p-4 w-full max-w-[100vw]">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center w-full gap-4">
         <div>
-          <h1 class="text-2xl font-bold text-gold-600">Nouvel Achat d'Or Local</h1>
-          <p class="text-sm text-muted-foreground">Enregistrez une nouvelle transaction d'achat</p>
+          <h1 class="text-2xl font-bold text-gold-600">
+            {{ localgoldpurchase ? 'Modifier' : 'Nouvel' }} Achat d'Or Local
+          </h1>
+          <p class="text-sm text-muted-foreground">
+            {{ localgoldpurchase ? 'Modifiez' : 'Enregistrez' }} une transaction d'achat
+          </p>
         </div>
-        <Link :href="resource.routes.index">
-          <Button variant="outline" class="border-gold-300">
+        <Link :href="resource.routes.index" class="w-full md:w-auto">
+          <Button variant="outline" class="border-gold-300 w-full md:w-auto">
             Retour aux achats
           </Button>
         </Link>
       </div>
 
-      <div class="bg-white dark:bg-card rounded-xl shadow-sm border border-gold-100 p-6">
-        <form @submit.prevent="submitForm" class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Section Détails de l'Or -->
-            <div class="space-y-4">
-              <h2 class="font-semibold text-lg flex items-center gap-2 text-gold-600">
-                <Scale class="w-5 h-5" /> Détails de l'Or
-              </h2>
-              
-              <div class="space-y-3">
-                <div>
-                  <label class="block text-sm font-medium mb-1">Fournisseur</label>
-                  <Select v-model="form.supplier_id" required>
-                    <SelectTrigger class="w-full">
-                      <SelectValue placeholder="Sélectionnez un fournisseur" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        v-for="(name, id) in supplierOptions"
-                        :key="id"
-                        :value="id"
-                      >
-                        {{ name }}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+      <div class="bg-white dark:bg-card rounded-xl shadow-sm border border-gold-100 p-4 md:p-6 w-full">
+        <form @submit.prevent="submitForm" class="space-y-6 w-full">
+          <!-- Section Informations de base -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full">
+            <!-- Fournisseur -->
+            <div class="space-y-1">
+              <label class="block text-sm font-medium mb-1">Fournisseur</label>
+              <Select 
+                v-model="form.supplier_id" 
+                required
+                :class="{ 'border-red-500': hasError('supplier_id') }"
+              >
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Sélectionnez un fournisseur" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem
+                    v-for="(name, id) in supplierOptions"
+                    :key="id"
+                    :value="id"
+                  >
+                    {{ name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p v-if="hasError('supplier_id')" class="text-red-500 text-xs mt-1">
+                {{ getError('supplier_id') }}
+              </p>
+            </div>
 
-                <div>
+            <!-- Date d'achat -->
+            <div class="space-y-1">
+              <label class="block text-sm font-medium mb-1">Date d'achat</label>
+              <Input 
+                v-model="form.purchase_date" 
+                type="date" 
+                required 
+                class="w-full"
+                :class="{ 'border-red-500': hasError('purchase_date') }"
+              />
+              <p v-if="hasError('purchase_date')" class="text-red-500 text-xs mt-1">
+                {{ getError('purchase_date') }}
+              </p>
+            </div>
+
+            <!-- Statut de paiement -->
+            <div class="space-y-1">
+              <label class="block text-sm font-medium mb-1">Statut de paiement</label>
+              <Select 
+                v-model="form.payment_status" 
+                required
+                :class="{ 'border-red-500': hasError('payment_status') }"
+              >
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">En attente</SelectItem>
+                  <SelectItem value="paid">Payé</SelectItem>
+                </SelectContent>
+              </Select>
+              <p v-if="hasError('payment_status')" class="text-red-500 text-xs mt-1">
+                {{ getError('payment_status') }}
+              </p>
+            </div>
+
+            <!-- Agent -->
+            <div class="space-y-1">
+              <label class="block text-sm font-medium mb-1">Agent</label>
+              <Select 
+                v-model="form.agent_id" 
+                required
+                :class="{ 'border-red-500': hasError('agent_id') }"
+              >
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Sélectionnez un agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem
+                    v-for="(name, id) in agentOptions"
+                    :key="id"
+                    :value="id"
+                  >
+                    {{ name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p v-if="hasError('agent_id')" class="text-red-500 text-xs mt-1">
+                {{ getError('agent_id') }}
+              </p>
+            </div>
+
+            <!-- Référence reçu -->
+            <div class="md:col-span-2 space-y-1">
+              <label class="block text-sm font-medium mb-1">Référence reçu</label>
+              <Input 
+                v-model="form.receipt_reference" 
+                required 
+                class="w-full"
+                :class="{ 'border-red-500': hasError('receipt_reference') }"
+              />
+              <p v-if="hasError('receipt_reference')" class="text-red-500 text-xs mt-1">
+                {{ getError('receipt_reference') }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Section Items -->
+          <div class="space-y-4 w-full">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <h2 class="font-semibold text-lg flex items-center gap-2 text-gold-600">
+                <Scale class="w-5 h-5" /> Articles d'Or
+              </h2>
+              <Button 
+                type="button" 
+                @click="addItem" 
+                variant="outline" 
+                class="border-gold-300 w-full md:w-auto"
+              >
+                <Plus class="w-4 h-4 mr-2" /> Ajouter un article
+              </Button>
+            </div>
+
+            <!-- Message d'erreur global pour les items -->
+            <div v-if="hasError('items')" class="bg-red-50 border border-red-200 text-red-600 p-3 rounded-md">
+              {{ getError('items') }}
+            </div>
+
+            <div 
+              v-for="(item, index) in items" 
+              :key="item.id" 
+              class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 relative w-full"
+              :class="{ 'border-red-500': hasError('items', index) }"
+            >
+              <button 
+                v-if="items.length > 1"
+                type="button" 
+                @click="removeItem(index)"
+                class="absolute top-2 right-2 text-red-500 hover:text-red-700"
+              >
+                <Trash2 class="w-4 h-4" />
+              </button>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 w-full">
+                <!-- Poids à l'air -->
+                <div class="space-y-1">
                   <label class="block text-sm font-medium mb-1">Poids à l'air (g)</label>
                   <Input 
-                    v-model="form.weight_grams_max" 
+                    v-model="item.weight_grams_max" 
                     type="number" 
                     required 
                     step="0.01"
                     min="0"
-                    @input="form.weight_grams_max = form.weight_grams_max.replace(/[^0-9.,]/g, '')"
+                    class="w-full"
+                    :class="{ 'border-red-500': hasError('items.weight_grams_max', index) }"
+                    placeholder="Mettez le Poids à l'air (g)"
                   />
+                  <p v-if="hasError('items.weight_grams_max', index)" class="text-red-500 text-xs mt-1">
+                    {{ getError('items.weight_grams_max', index) }}
+                  </p>
                 </div>
 
-                <div>
+                <!-- Poids à l'eau -->
+                <div class="space-y-1">
                   <label class="block text-sm font-medium mb-1">Poids à l'eau (g)</label>
                   <Input 
-                    v-model="form.weight_grams_min" 
+                    v-model="item.weight_grams_min" 
                     type="number" 
                     required 
                     step="0.01"
                     min="0"
-                    @input="form.weight_grams_min = form.weight_grams_min.replace(/[^0-9.,]/g, '')"
+                    class="w-full"
+                    :class="{ 'border-red-500': hasError('items.weight_grams_min', index) }"
+                    placeholder="Mettez le Poids à l'eau (g)"
                   />
+                  <p v-if="hasError('items.weight_grams_min', index)" class="text-red-500 text-xs mt-1">
+                    {{ getError('items.weight_grams_min', index) }}
+                  </p>
                 </div>
 
-                <div>
-                  <label class="block text-sm font-medium mb-1">Densité Or (calculée)</label>
+                <!-- Densité -->
+                <div class="space-y-1">
+                  <label class="block text-sm font-medium mb-1">Densité</label>
                   <Input 
-                    v-model="form.densite" 
+                    v-model="item.densite" 
                     type="text" 
                     readonly
-                    class="bg-gray-100"
+                    class="bg-gray-100 w-full"
+                    :class="{ 'border-red-500': hasError('items.densite', index) }"
+                    placeholder="Affichage Densité (calculée)"
                   />
+                  <p v-if="hasError('items.densite', index)" class="text-red-500 text-xs mt-1">
+                    {{ getError('items.densite', index) }}
+                  </p>
                 </div>
-              </div>
-            </div>
 
-            <!-- Section Détails de la Transaction -->
-            <div class="space-y-4">
-              <h2 class="font-semibold text-lg flex items-center gap-2 text-gold-600">
-                <BadgeDollarSign class="w-5 h-5" /> Détails Financiers
-              </h2>
-              
-              <div class="space-y-3">
-                <div>
+                <!-- Taux Local Pur -->
+                <div class="space-y-1">
                   <label class="block text-sm font-medium mb-1">Taux Local Pur</label>
-                  <Select v-model="form.local_rate_id" required>
-                    <SelectTrigger class="w-full">
-                      <SelectValue placeholder="Sélectionnez un taux" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        v-for="(rate, id) in localRateOptions"
-                        :key="id"
-                        :value="id"
-                      >
-                        {{ rate }} XOF/g
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div class="flex items-center gap-2">
+                    <Button 
+                      type="button" 
+                      @click="toggleEditRate(index)"
+                      variant="outline" 
+                      size="sm"
+                      class="whitespace-nowrap p-1"
+                    >
+                      <template v-if="item.editingRate">
+                        <Check class="w-4 h-4 text-green-500" />
+                      </template>
+                      <template v-else>
+                        <Pencil class="w-4 h-4" />
+                      </template>
+                    </Button>
+                    <Button 
+                      v-if="item.editingRate"
+                      type="button" 
+                      @click="toggleEditRate(index, true)"
+                      variant="outline" 
+                      size="sm"
+                      class="whitespace-nowrap p-1 text-red-500 hover:text-red-700 border-red-300"
+                    >
+                      <X class="w-4 h-4" />
+                    </Button>
+                    <Input 
+                      :modelValue="item.local_rate" 
+                      @update:modelValue="val => { item.local_rate = val }"
+                      :type="item.editingRate ? 'number' : 'text'" 
+                      :readonly="!item.editingRate"
+                      :class="['w-full', item.editingRate ? 'bg-white' : 'bg-gray-100', hasError('items.local_rate', index) ? 'border-red-500' : '']"
+                      placeholder="Taux local (Base)"
+                      step="0.01"
+                    />
+                  </div>
+                  <p v-if="hasError('items.local_rate', index)" class="text-red-500 text-xs mt-1">
+                    {{ getError('items.local_rate', index) }}
+                  </p>
                 </div>
 
-                <div>
-                  <label class="block text-sm font-medium mb-1">Prix au gramme (calculé)</label>
+                <!-- Carat -->
+                <div class="space-y-1">
+                  <label class="block text-sm font-medium mb-1">Carat</label>
                   <Input 
-                    v-model="form.price_per_gram_local" 
+                    :value="getCaratDisplay(item)"
                     type="text" 
                     readonly
-                    class="bg-gray-100"
+                    class="bg-gray-100 w-full"
+                    :class="{ 'border-red-500': hasError('items.bareme_designation_carat_id', index) }"
+                    placeholder="Affichage Carat (calculé)"
                   />
+                  <p v-if="hasError('items.bareme_designation_carat_id', index)" class="text-red-500 text-xs mt-1">
+                    {{ getError('items.bareme_designation_carat_id', index) }}
+                  </p>
                 </div>
 
-                <div>
-                  <label class="block text-sm font-medium mb-1">Date d'achat</label>
-                  <Input v-model="form.purchase_date" type="date" required />
+                <!-- Pureté Estimée -->
+                <div class="space-y-1">
+                  <label class="block text-sm font-medium mb-1">Pureté Estimée</label>
+                  <Input 
+                    v-model="item.purity_estimated" 
+                    type="text" 
+                    readonly
+                    class="bg-gray-100 w-full"
+                    :class="{ 'border-red-500': hasError('items.purity_estimated', index) }"
+                    placeholder="Affichage Pureté Estimée (calculée)"
+                  />
+                  <p v-if="hasError('items.purity_estimated', index)" class="text-red-500 text-xs mt-1">
+                    {{ getError('items.purity_estimated', index) }}
+                  </p>
+                </div>
+
+                <!-- Prix au Gramme -->
+                <div class="space-y-1">
+                  <label class="block text-sm font-medium mb-1">Prix au Gramme(g)</label>
+                  <Input 
+                    v-model="item.price_per_gram_local" 
+                    type="text" 
+                    readonly
+                    class="bg-gray-100 w-full"
+                    :class="{ 'border-red-500': hasError('items.price_per_gram_local', index) }"
+                    placeholder="Affichage Prix au Gramme (calculé)"
+                  />
+                  <p v-if="hasError('items.price_per_gram_local', index)" class="text-red-500 text-xs mt-1">
+                    {{ getError('items.price_per_gram_local', index) }}
+                  </p>
+                </div>
+
+                <!-- Montant Total -->
+                <div class="space-y-1">
+                  <label class="block text-sm font-medium mb-1">Montant Total</label>
+                  <Input 
+                    v-model="item.total_price" 
+                    type="text" 
+                    readonly
+                    class="bg-gray-100 w-full"
+                    :class="{ 'border-red-500': hasError('items.total_price', index) }"
+                    placeholder="Affichage Montant Total (calculé)"
+                  />
+                  <p v-if="hasError('items.total_price', index)" class="text-red-500 text-xs mt-1">
+                    {{ getError('items.total_price', index) }}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Section Récapitulatif -->
-          <div class="bg-gold-50 dark:bg-gold-900/20 rounded-lg p-4 border border-gold-200 dark:border-gold-800">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label class="block text-sm font-medium mb-1">Densité Or</label>
-                <div class="text-2xl font-bold text-gold-600">
-                  {{ densite }}
-                </div>
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1">Carats</label>
-                <div class="text-2xl font-bold text-gold-600">
-                  {{ selectedCarat?.carat || '--' }}K
-                </div>
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1">Pureté estimée</label>
-                <div class="text-2xl font-bold text-gold-600">
-                  {{ purete }}%
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-gold-50 dark:bg-gold-900/20 rounded-lg p-4 border border-gold-200 dark:border-gold-800">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label class="block text-sm font-medium mb-1">Montant total</label>
-                <div class="text-2xl font-bold text-gold-600">
-                  {{ montantTotal }} XOF
-                </div>
-              </div>
-              
-              <div>
-                <label class="block text-sm font-medium mb-1">Statut de paiement</label>
-                <Select v-model="form.payment_status" required>
-                  <SelectTrigger class="w-full">
-                    <SelectValue placeholder="Statut" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">En attente</SelectItem>
-                    <SelectItem value="paid">Payé</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <label class="block text-sm font-medium mb-1">Référence reçu</label>
-                <Input v-model="form.receipt_reference" required />
-              </div>
-            </div>
-          </div>
-
-          <!-- Section Agent -->
-          <div class="space-y-3">
-            <h2 class="font-semibold text-lg flex items-center gap-2 text-gold-600">
-              <User class="w-5 h-5" /> Agent Responsable
-            </h2>
-            <Select v-model="form.agent_id" required>
-              <SelectTrigger class="w-full">
-                <SelectValue placeholder="Sélectionnez un agent" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  v-for="(name, id) in agentOptions"
-                  :key="id"
-                  :value="id"
-                >
-                  {{ name }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div class="flex justify-end gap-3 pt-4">
-            <Link :href="resource.routes.index">
-              <Button variant="outline" type="button">
+          <div class="flex flex-col md:flex-row justify-end gap-3 pt-4 w-full">
+            <Link :href="resource.routes.index" class="w-full md:w-auto">
+              <Button variant="outline" type="button" class="w-full md:w-auto">
                 Annuler
               </Button>
             </Link>
-            <Button type="submit" class="bg-gold-600 hover:bg-gold-700" :disabled="form.processing">
-              Enregistrer l'achat
+            <Button 
+              type="submit" 
+              class="bg-gold-600 hover:bg-gold-700 w-full md:w-auto" 
+              :disabled="form.processing"
+            >
+              {{ localgoldpurchase ? 'Mettre à jour' : 'Enregistrer' }} l'achat
             </Button>
           </div>
         </form>
@@ -362,6 +545,9 @@ function submitForm() {
   }
   .hover\:bg-gold-700:hover {
     background-color: hsl(42, 94%, 45%);
+  }
+  .border-red-500 {
+    border-color: #ef4444;
   }
 }
 </style>

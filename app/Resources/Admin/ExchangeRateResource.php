@@ -16,7 +16,7 @@ class ExchangeRateResource extends Resource
     
     protected static string $model = ExchangeRate::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Exchange Rate';
+    public static string $label = 'Taux de change';
 
     
 

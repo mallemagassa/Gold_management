@@ -16,7 +16,7 @@ class TransactionResource extends Resource
     
     protected static string $model = Transaction::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Transaction';
+    public static string $label = 'Gestion Transaction';
 
     
     public static function creatorOptions(): array

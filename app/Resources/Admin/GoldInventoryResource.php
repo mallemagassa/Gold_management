@@ -17,7 +17,7 @@ class GoldInventoryResource extends Resource
     
     protected static string $model = GoldInventory::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Gold Inventory';
+    public static string $label = "Inventaire d'Or";
 
     
     public static function batchOptions(): array

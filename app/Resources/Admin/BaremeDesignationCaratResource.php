@@ -16,7 +16,7 @@ class BaremeDesignationCaratResource extends Resource
     
     protected static string $model = BaremeDesignationCarat::class;
     protected static string $panel = 'admin';
-    public static string $label = 'Bareme Designation Carat';
+    public static string $label = "Désignation Bareme Carat";
 
     
     public static function achatsOptions(): array
